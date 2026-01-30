@@ -88,7 +88,6 @@ async function handleSignin(model: any) {
 
   const keycloakParams = new URLSearchParams();
   keycloakParams.append("email", outlineUser.email);
-  logger.info(`Searching for Keycloak user with email: ${outlineUser.email}`);
   const keycloakUserRes = await keycloakRequest(`/users?${keycloakParams}`);
   
   // Improved error handling for keycloak response
@@ -152,17 +151,11 @@ async function handleSignin(model: any) {
 }
 
 async function updateUserRole(outlineUser: any, keycloakGroupsNames: string[], userId: string) {
-  logger.info(`Starting role update check for user ${outlineUser.email}`);
-  
   // Read environment variables for group-to-role mappings
   const guestGroups = (Deno.env.get("OUTLINE_GUEST_GROUPS") || "").split(",").map(g => g.trim()).filter(Boolean);
   const viewerGroups = (Deno.env.get("OUTLINE_VIEWER_GROUPS") || "").split(",").map(g => g.trim()).filter(Boolean);
   const editorGroups = (Deno.env.get("OUTLINE_EDITOR_GROUPS") || "").split(",").map(g => g.trim()).filter(Boolean);
   const adminGroups = (Deno.env.get("OUTLINE_ADMIN_GROUPS") || "").split(",").map(g => g.trim()).filter(Boolean);
-
-  logger.info(`Configured role groups - Guest: [${guestGroups}], Viewer: [${viewerGroups}], Editor: [${editorGroups}], Admin: [${adminGroups}]`);
-  logger.info(`User's Keycloak groups: [${keycloakGroupsNames}]`);
-  logger.info(`User's current Outline role: ${outlineUser.role}`);
 
   let targetRole = null;
 
@@ -170,34 +163,23 @@ async function updateUserRole(outlineUser: any, keycloakGroupsNames: string[], u
   // If user is in multiple role groups, the highest priority wins
   if (keycloakGroupsNames.some(g => adminGroups.includes(g))) {
     targetRole = "admin";
-    logger.info(`User matches admin groups, setting targetRole to: ${targetRole}`);
   } else if (keycloakGroupsNames.some(g => editorGroups.includes(g))) {
     targetRole = "member";
-    logger.info(`User matches editor groups, setting targetRole to: ${targetRole}`);
   } else if (keycloakGroupsNames.some(g => viewerGroups.includes(g))) {
     targetRole = "viewer";
-    logger.info(`User matches viewer groups, setting targetRole to: ${targetRole}`);
   } else if (keycloakGroupsNames.some(g => guestGroups.includes(g))) {
     targetRole = "guest";
-    logger.info(`User matches guest groups, setting targetRole to: ${targetRole}`);
   }
-
-  logger.info(`Determined targetRole: ${targetRole || 'none'}`);
 
   // Only update role if we determined a target role and it's different from current
   if (targetRole && outlineUser.role !== targetRole) {
-    logger.info(`Updating role for ${outlineUser.email} from ${outlineUser.role} to ${targetRole}`);
+    logger.info(`Updating ${outlineUser.email} role: ${outlineUser.role} → ${targetRole}`);
     try {
       await outlineRequest("/users.update_role", { id: userId, role: targetRole });
-      logger.info(`Successfully updated role for ${outlineUser.email} to ${targetRole}`);
     } catch (err) {
       logger.error(`Failed to update role for ${outlineUser.email}: `, err);
       throw err;
     }
-  } else if (targetRole) {
-    logger.info(`Role for ${outlineUser.email} is already ${targetRole}, no update needed`);
-  } else {
-    logger.info(`No role mapping found for ${outlineUser.email}'s groups, keeping current role ${outlineUser.role}`);
   }
 }
 
@@ -251,7 +233,6 @@ async function keycloakRequest(path: string, body: any = null, retries = 1): Pro
   }
   
   try {
-    logger.info(`Sending ${method} request to Keycloak: ${url}`);
     const response = await fetch(
       url,
       {
@@ -299,7 +280,6 @@ async function refreshKeycloakToken() {
   const headers = new Headers();
   headers.append("content-type", "application/x-www-form-urlencoded");
   
-  logger.info("Refreshing Keycloak token");
   const res = await fetch(url, {
     method: "POST",
     body: data.toString(),
@@ -308,11 +288,9 @@ async function refreshKeycloakToken() {
   
   if (res.ok) {
     const data = JSON.parse(await res.text());
-    logger.info("Login to Keycloak successful using service account");
     KC_TOKEN = data.access_token;
     // Set token expiration time (subtract 60 seconds for safety margin)
     KC_TOKEN_EXPIRES_AT = Date.now() + (data.expires_in - 60) * 1000;
-    logger.info(`Token will expire at ${new Date(KC_TOKEN_EXPIRES_AT).toISOString()}`);
   } else {
     const text = await res.text();
     logger.error(`Login to Keycloak failed: ${text}`);
