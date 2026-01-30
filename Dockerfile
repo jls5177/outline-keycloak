@@ -4,8 +4,8 @@ FROM denoland/deno:alpine
 # Set the working directory
 WORKDIR /app
 
-# Copy the application code
-COPY . .
+# Copy only the application file
+COPY server.ts .
 
 # Expose the port the application will run on
 EXPOSE 8000
