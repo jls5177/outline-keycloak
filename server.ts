@@ -121,34 +121,33 @@ async function handleSignin(model: any) {
     !outlineUserGroupsNames.includes(g)
   );
 
-  if (!groupsToCreate.length && !groupsToLeave.length && !groupsToJoin.length) {
-    logger.info(`  update user ${outlineUser.email}: no changes needed`);
-    return;
-  }
-
-  logger.info(
-    `  update user ${outlineUser.name} - leave (${groupsToLeave}), join (${groupsToJoin}) create (${groupsToCreate})`,
-  );
-  for (const name of groupsToCreate) {
-    try {
-      const { data } = await outlineRequest("/groups.create", { name });
-      outlineAllGroups.push(data);
-    } catch (err) {
-      logger.warn(`failed to create group ${name}: `, err);
+  if (groupsToCreate.length || groupsToLeave.length || groupsToJoin.length) {
+    logger.info(
+      `  update user ${outlineUser.name} - leave (${groupsToLeave}), join (${groupsToJoin}) create (${groupsToCreate})`,
+    );
+    for (const name of groupsToCreate) {
+      try {
+        const { data } = await outlineRequest("/groups.create", { name });
+        outlineAllGroups.push(data);
+      } catch (err) {
+        logger.warn(`failed to create group ${name}: `, err);
+      }
     }
-  }
-  for (const name of groupsToJoin) {
-    const group = outlineAllGroups.find((g) => g.name === name);
-    if (!group) throw new Error("Invalid group: " + name);
-    await outlineRequest("/groups.add_user", { id: group.id, userId });
-  }
-  for (const name of groupsToLeave) {
-    const group = outlineAllGroups.find((g) => g.name === name);
-    if (!group) throw new Error("Invalid group: " + name);
-    await outlineRequest("/groups.remove_user", { id: group.id, userId });
+    for (const name of groupsToJoin) {
+      const group = outlineAllGroups.find((g) => g.name === name);
+      if (!group) throw new Error("Invalid group: " + name);
+      await outlineRequest("/groups.add_user", { id: group.id, userId });
+    }
+    for (const name of groupsToLeave) {
+      const group = outlineAllGroups.find((g) => g.name === name);
+      if (!group) throw new Error("Invalid group: " + name);
+      await outlineRequest("/groups.remove_user", { id: group.id, userId });
+    }
+  } else {
+    logger.info(`  update user ${outlineUser.email}: no group changes needed`);
   }
 
-  // Update user role based on Keycloak groups
+  // Update user role based on Keycloak groups (always check on signin)
   await updateUserRole(outlineUser, keycloakGroupsNames, userId);
 }
 
