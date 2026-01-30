@@ -153,11 +153,17 @@ async function handleSignin(model: any) {
 }
 
 async function updateUserRole(outlineUser: any, keycloakGroupsNames: string[], userId: string) {
+  logger.info(`Starting role update check for user ${outlineUser.email}`);
+  
   // Read environment variables for group-to-role mappings
   const guestGroups = (Deno.env.get("OUTLINE_GUEST_GROUPS") || "").split(",").map(g => g.trim()).filter(Boolean);
   const viewerGroups = (Deno.env.get("OUTLINE_VIEWER_GROUPS") || "").split(",").map(g => g.trim()).filter(Boolean);
   const editorGroups = (Deno.env.get("OUTLINE_EDITOR_GROUPS") || "").split(",").map(g => g.trim()).filter(Boolean);
   const adminGroups = (Deno.env.get("OUTLINE_ADMIN_GROUPS") || "").split(",").map(g => g.trim()).filter(Boolean);
+
+  logger.info(`Configured role groups - Guest: [${guestGroups}], Viewer: [${viewerGroups}], Editor: [${editorGroups}], Admin: [${adminGroups}]`);
+  logger.info(`User's Keycloak groups: [${keycloakGroupsNames}]`);
+  logger.info(`User's current Outline role: ${outlineUser.role}`);
 
   let targetRole = null;
 
@@ -165,13 +171,19 @@ async function updateUserRole(outlineUser: any, keycloakGroupsNames: string[], u
   // If user is in multiple role groups, the highest priority wins
   if (keycloakGroupsNames.some(g => adminGroups.includes(g))) {
     targetRole = "admin";
+    logger.info(`User matches admin groups, setting targetRole to: ${targetRole}`);
   } else if (keycloakGroupsNames.some(g => editorGroups.includes(g))) {
     targetRole = "member";
+    logger.info(`User matches editor groups, setting targetRole to: ${targetRole}`);
   } else if (keycloakGroupsNames.some(g => viewerGroups.includes(g))) {
     targetRole = "viewer";
+    logger.info(`User matches viewer groups, setting targetRole to: ${targetRole}`);
   } else if (keycloakGroupsNames.some(g => guestGroups.includes(g))) {
     targetRole = "guest";
+    logger.info(`User matches guest groups, setting targetRole to: ${targetRole}`);
   }
+
+  logger.info(`Determined targetRole: ${targetRole || 'none'}`);
 
   // Only update role if we determined a target role and it's different from current
   if (targetRole && outlineUser.role !== targetRole) {
