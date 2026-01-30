@@ -184,7 +184,7 @@ async function updateUserRole(outlineUser: any, keycloakGroupsNames: string[], u
       throw err;
     }
   } else if (targetRole) {
-    logger.debug(`Role for ${outlineUser.email} is already ${targetRole}, no update needed`);
+    logger.info(`Role for ${outlineUser.email} is already ${targetRole}, no update needed`);
   } else {
     logger.info(`No role mapping found for ${outlineUser.email}'s groups, keeping current role ${outlineUser.role}`);
   }
