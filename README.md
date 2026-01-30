@@ -21,6 +21,7 @@ This project is modified from [Frando's Outline Webhook example](https://gist.gi
 
 ## Environment Variables
 
+### Core Configuration
 - `DENO_ENV`: Set to `production` by default in the Dockerfile.
 - `WEBHOOK_SECRET`: Your Outline webhook secret.
 - `OUTLINE_ENDPOINT`: The API endpoint of your Outline instance (e.g., `https://your-outline-instance.com/api`).
@@ -29,6 +30,18 @@ This project is modified from [Frando's Outline Webhook example](https://gist.gi
 - `KEYCLOAK_REALM`: Your Keycloak realm.
 - `KEYCLOAK_CLIENT_ID`: Your Keycloak client ID.
 - `KEYCLOAK_CLIENT_SECRET`: Your Keycloak client secret.
+
+### Role Management (Optional)
+Configure which Keycloak groups map to which Outline roles. Each variable accepts a comma-separated list of group names:
+
+- `OUTLINE_GUEST_GROUPS`: Keycloak groups that should have "guest" role in Outline (e.g., `sponsors,students`).
+- `OUTLINE_VIEWER_GROUPS`: Keycloak groups that should have "viewer" role in Outline.
+- `OUTLINE_EDITOR_GROUPS`: Keycloak groups that should have "editor" role in Outline.
+- `OUTLINE_ADMIN_GROUPS`: Keycloak groups that should have "admin" role in Outline.
+
+**Role Priority**: If a user belongs to multiple groups mapped to different roles, the highest priority role is assigned: admin > editor > viewer > guest.
+
+**Note**: Users in groups not listed in any role mapping will retain their existing Outline role.
 
 ## Credits
 

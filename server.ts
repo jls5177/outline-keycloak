@@ -147,6 +147,47 @@ async function handleSignin(model: any) {
     if (!group) throw new Error("Invalid group: " + name);
     await outlineRequest("/groups.remove_user", { id: group.id, userId });
   }
+
+  // Update user role based on Keycloak groups
+  await updateUserRole(outlineUser, keycloakGroupsNames, userId);
+}
+
+async function updateUserRole(outlineUser: any, keycloakGroupsNames: string[], userId: string) {
+  // Read environment variables for group-to-role mappings
+  const guestGroups = (Deno.env.get("OUTLINE_GUEST_GROUPS") || "").split(",").map(g => g.trim()).filter(Boolean);
+  const viewerGroups = (Deno.env.get("OUTLINE_VIEWER_GROUPS") || "").split(",").map(g => g.trim()).filter(Boolean);
+  const editorGroups = (Deno.env.get("OUTLINE_EDITOR_GROUPS") || "").split(",").map(g => g.trim()).filter(Boolean);
+  const adminGroups = (Deno.env.get("OUTLINE_ADMIN_GROUPS") || "").split(",").map(g => g.trim()).filter(Boolean);
+
+  let targetRole = null;
+
+  // Check role priority: admin > editor > viewer > guest
+  // If user is in multiple role groups, the highest priority wins
+  if (keycloakGroupsNames.some(g => adminGroups.includes(g))) {
+    targetRole = "admin";
+  } else if (keycloakGroupsNames.some(g => editorGroups.includes(g))) {
+    targetRole = "member";
+  } else if (keycloakGroupsNames.some(g => viewerGroups.includes(g))) {
+    targetRole = "viewer";
+  } else if (keycloakGroupsNames.some(g => guestGroups.includes(g))) {
+    targetRole = "guest";
+  }
+
+  // Only update role if we determined a target role and it's different from current
+  if (targetRole && outlineUser.role !== targetRole) {
+    logger.info(`Updating role for ${outlineUser.email} from ${outlineUser.role} to ${targetRole}`);
+    try {
+      await outlineRequest("/users.update_role", { id: userId, role: targetRole });
+      logger.info(`Successfully updated role for ${outlineUser.email} to ${targetRole}`);
+    } catch (err) {
+      logger.error(`Failed to update role for ${outlineUser.email}: `, err);
+      throw err;
+    }
+  } else if (targetRole) {
+    logger.debug(`Role for ${outlineUser.email} is already ${targetRole}, no update needed`);
+  } else {
+    logger.info(`No role mapping found for ${outlineUser.email}'s groups, keeping current role ${outlineUser.role}`);
+  }
 }
 
 async function outlineRequest(path: string, body: any): Promise<Response> {
